@@ -11,25 +11,20 @@ mpHands = mp.solutions.hands
 hands = mpHands.Hands(max_num_hands=1, min_detection_confidence=0.7)
 mpDraw = mp.solutions.drawing_utils
 
-# Load the gesture recognizer model
-from keras.utils import custom_object_scope
+# Cargar el modelo TFLite
+interpreter = tf.lite.Interpreter(model_path='model.tflite')
+interpreter.allocate_tensors()
 
-# Definir la capa personalizada (o importarla si está en otro script)
-class KerasModelWrapper(tf.keras.Model):  # Asegúrate de que hereda de Model
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# Obtener detalles de los tensores de entrada
+input_details = interpreter.get_input_details()
 
-    def call(self, inputs):
-        return inputs  # Lógica real del modelo
+# Información de las salidas
+output_details = interpreter.get_output_details()
 
-# Cargar el modelo dentro de un custom_object_scope
-with custom_object_scope({'KerasModelWrapper': KerasModelWrapper}):
-    model = tf.keras.models.load_model("mp_hand_gesture_manual.h5")
+# THRESHOLD
+THRESHOLD = 1
 
-print(model.input_dtype)
-# model = tensorflow.saved_model.load('mp_hand_gesture_manual')
-
-# Load class names
+# # Load class names
 f = open('gesture.names', 'r')
 classNames = f.read().split('\n')
 f.close()
@@ -69,7 +64,6 @@ while True:
 
             # Drawing landmarks on frames
             mpDraw.draw_landmarks(frame, handslms, mpHands.HAND_CONNECTIONS)
-            
 
             # Convierte landmarks a numpy array
             landmarks_array = np.array(landmarks, dtype=np.float32)
@@ -77,12 +71,15 @@ while True:
             # Asegúrate de que tenga la forma esperada (None, 21, 2)
             landmarks_array = np.expand_dims(landmarks_array, axis=0)
 
-            # print(landmarks)
-            # Predict gesture
-            prediction = model.predict(landmarks_array)
-            # print(prediction)
-            classID = np.argmax(prediction)
-            className = classNames[classID]
+            interpreter.set_tensor(input_details[0]['index'], landmarks_array)
+
+            interpreter.invoke()
+
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+
+            if np.argmax(output_data[0]) > THRESHOLD: 
+                classID = np.argmax(output_data[0])
+                className = classNames[classID]
 
     # show the prediction on the frame
     cv2.putText(frame, className, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 
