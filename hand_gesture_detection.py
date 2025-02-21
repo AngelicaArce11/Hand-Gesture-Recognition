@@ -77,7 +77,7 @@ while True:
 
             output_data = interpreter.get_tensor(output_details[0]['index'])
 
-            if np.argmax(output_data[0]) > THRESHOLD: 
+            if np.max(output_data[0]) > THRESHOLD: 
                 classID = np.argmax(output_data[0])
                 className = classNames[classID]
 
